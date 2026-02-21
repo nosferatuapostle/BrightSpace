@@ -267,10 +267,8 @@ public class Player
         
         var statLines = new List<string>
         {
-            // $"FPS: {fps.FramesPerSecond}",
-            // $"UnitCount: {World.UnitList.Count}",
-            // $"ProjectileCount: {World.ProjectileList.Count}",
-            // $"EntityCount: {World.UnitList.Count + World.ProjectileList.Count}",
+            $"FPS: {fps.FramesPerSecond}",
+            $"UnitCount: {World.UnitList.Count}",
             "",
             $"Name: {playerUnit.name}",
             $"Type, Faction: {playerUnit.type}, {playerUnit.faction}",
