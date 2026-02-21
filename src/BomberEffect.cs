@@ -10,6 +10,8 @@ public class BomberEffect : UnitEffect
 
     public BomberEffect(Unit target) : base(target)
     {
+        name = "Bomber Extra Bomb";
+
         isReady = false;
         cd = new CountdownTimer(0.1f);
 

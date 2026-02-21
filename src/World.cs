@@ -90,12 +90,12 @@ public class World
         {
             var u = UnitList[i];
 
-            player.UpdateInUnitLoop(u);
+            player.UpdateInUnitLoop(u, gameTime);
 
             u.Update(gameTime);
             if (u.isDestroyed)
             {
-                u.Destroy();
+                u.PostDeath();
                 UnitList.RemoveAt(i);
                 i--;
             }
@@ -107,7 +107,7 @@ public class World
             p.Update(gameTime);
             if (p.isDone)
             {
-                p.Destroy();
+                p.PostDeath();
                 ProjectileList.RemoveAt(i);
                 i--;
             }

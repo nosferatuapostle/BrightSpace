@@ -26,13 +26,13 @@ public class SupportEffect : UnitEffect
     private static void AddSupportBuff(Unit unit)
     {
         unit.AddValueModifier(UnitValue.Magnitude, ModifierData.SUPPORT_EFFECT, new ValueModifier(0.1f, ModifierType.Flat));
-        unit.AddValueModifier(UnitValue.SpeedMult, ModifierData.SUPPORT_EFFECT, new ValueModifier(0.1f, ModifierType.Flat));
+        unit.AddValueModifier(UnitValue.MoveSpeed, ModifierData.SUPPORT_EFFECT, new ValueModifier(0.1f, ModifierType.Flat));
     }
     
     private static void RemoveSupportBuff(Unit unit)
     {
         unit.RemoveValueModifier(UnitValue.Magnitude, ModifierData.SUPPORT_EFFECT);
-        unit.RemoveValueModifier(UnitValue.SpeedMult, ModifierData.SUPPORT_EFFECT);
+        unit.RemoveValueModifier(UnitValue.MoveSpeed, ModifierData.SUPPORT_EFFECT);
     }
 
     protected override void OnEnd()

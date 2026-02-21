@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -19,83 +18,64 @@ public class Player
     private MoveMarker moveMarker;
     private CountdownTimer delay;
 
-    private readonly Spawner spawner;
+    public static Vector2 SpawnPosition = Vector2.Zero;
 
     public Player()
     {
         moveMarker = new MoveMarker();
         delay = new CountdownTimer(0.125f);
 
-        spawner = new Spawner();
+        _ = new Spawner();
 
         experience = new Experience();
-
-        // var frigate1 = Factory.CreateUnit(UnitType.Support, Faction.DuskFleet);
-        // var frigate2 = Factory.CreateUnit(UnitType.Frigate, Faction.DuskFleet);
-        // var frigate3 = Factory.CreateUnit(UnitType.Frigate, Faction.DuskFleet);
-        // var frigate4 = Factory.CreateUnit(UnitType.Frigate, Faction.DuskFleet);
-        // var frigate5 = Factory.CreateUnit(UnitType.Frigate, Faction.DuskFleet);
-        // var frigate6 = Factory.CreateUnit(UnitType.Frigate, Faction.DuskFleet);
-        // var frigate7 = Factory.CreateUnit(UnitType.Frigate, Faction.DuskFleet);
-
-        // frigate1.position = new Vector2(100, 100);
-        // frigate2.position = new Vector2(100, 200);
-        // frigate3.position = new Vector2(100, 300);
-        // frigate4.position = new Vector2(100, 400);
-        // frigate5.position = new Vector2(200, 100);
-        // frigate6.position = new Vector2(300, 100);
-        // frigate7.position = new Vector2(400, 100);
-
-        // // frigate1.isAIControl = true;
-        // frigate1.AddValueModifier(UnitValue.Magnitude, ModifierData.PLAYER_DAMAGE, new ValueModifier(4f, ModifierType.Flat));
-        // frigate1.AddValueModifier(UnitValue.Health, ModifierData.PLAYER_HEALTH, new ValueModifier(10000f, ModifierType.Flat));
-        // frigate1.RestoreFullHealth();
     }
 
     public void SetPlayerUnit(Unit unit)
     {
         playerUnit = unit;
 
-        playerUnit.position = World.Camera.Center;
-
         playerUnit.name = "PLAYER";
         playerUnit.isPlayer = true;
-        playerUnit.isCannotDie = true;
+        playerUnit.isCannotDie = false;
 
         playerUnit.RestoreFullHealth();
 
-        playerUnit.AddValueModifier(UnitValue.Health, ModifierData.PLAYER_HEALTH, new ValueModifier(0f, ModifierType.Flat));
-        playerUnit.AddValueModifier(UnitValue.Magnitude, ModifierData.PLAYER_DAMAGE, new ValueModifier(0f, ModifierType.Flat));
-        playerUnit.AddValueModifier(UnitValue.SpeedMult, ModifierData.PLAYER_SPEED, new ValueModifier(0f, ModifierType.Flat));
+        playerUnit.position = SpawnPosition;
 
-        playerUnit.OnKill += (dying) =>
-        {
-            if (dying.type == UnitType.Asteroid)
-            {
-                experience.AddKillReward(dying, 10f);
-            }
-            else
-            {
-                experience.AddKillReward(dying);
-            }
-        };
+        playerUnit.AddValueModifier(UnitValue.HealRate, ModifierData.PLAYER_BUFF, new ValueModifier(4f, ModifierType.PercentMult));
+        playerUnit.AddValueModifier(UnitValue.Magnitude, ModifierData.PLAYER_BUFF, new ValueModifier(1f, ModifierType.PercentMult));
 
-        
+        playerUnit.OnDamage += DamageEvent;
+        playerUnit.OnKill += KillEvent;
+        playerUnit.OnRemoved += RemoveEvent;
+
         experience.Reset();
-        experience.OnLevelUp += LevelUp;
+        experience.OnLevelUp += LevelUpEvent;
+    }
 
-        playerUnit.OnHit += (Unit target, ref float damage) =>
-        {
-            experience.AddExp(0f); // experience.GetNextLevelXP() * 0.5f
-        };
+    private void DamageEvent(Unit source, Unit victim, ref float damage)
+    {
+        damage *= 0.75f;
+    }
 
-        playerUnit.OnRemoved += () =>
-        {
-            Main.GameState = GameState.SelectState;
-        };
+    private void KillEvent(Unit dying)
+    {
+        experience.AddKillReward(dying);
+    }
+
+    private void RemoveEvent()
+    {
+        Main.GameState = GameState.SelectState;
+        
+        SpawnPosition = playerUnit.position;
+
+        playerUnit.OnDamage -= DamageEvent;
+        playerUnit.OnKill -= KillEvent;
+        playerUnit.OnRemoved -= RemoveEvent;
+        experience.OnLevelUp -= LevelUpEvent;
     }
     
-    private void LevelUp()
+    private void LevelUpEvent()
     {
         playerUnit.level++;
         playerUnit.LevelUp();
@@ -137,7 +117,7 @@ public class Player
                     playerUnit.MoveTo(mousePos);
                 }
             }
-            
+
             if (Input.Keyboard.IsKeyDown(Keys.W) && delay.State == TimerState.Completed)
             {
                 delay.Restart();
@@ -147,49 +127,52 @@ public class Player
             if (Input.Keyboard.IsKeyDown(Keys.S) && delay.State == TimerState.Completed)
             {
                 playerUnit.MoveStop();
+                playerUnit.SetUnitTarget(null);
             }
 
             if (Input.Keyboard.WasKeyReleased(Keys.F))
             {
                 playerUnit.isCannotDie = !playerUnit.isCannotDie;
             }
+
             if (Input.Keyboard.WasKeyReleased(Keys.E))
             {
                 playerUnit.RestoreFullHealth();
             }
+
             if (Input.Keyboard.WasKeyReleased(Keys.Q))
             {
                 playerUnit.TakeDamage(playerUnit, Utils.Random.Next(1, 10));
             }
-            if (Input.Keyboard.WasKeyReleased(Keys.K))
+
+            if (Input.Keyboard.WasKeyReleased(Keys.R))
             {
-                playerUnit.Kill();
+                playerUnit.isCannotDie = !playerUnit.isCannotDie;
+                playerUnit.Kill(playerUnit);
             }
-            if (Input.Keyboard.WasKeyReleased(Keys.OemMinus))
-            {
-                playerUnit.level--;
-                
-            }
+
             if (Input.Keyboard.WasKeyReleased(Keys.OemPlus))
             {
-                LevelUp();
+                experience.AddExp(experience.GetNextLevelXP());
             }
         }
         moveMarker.Update(gameTime);
     }
-    
-    public void UpdateInUnitLoop(Unit unit)
-    {
-        
 
+    public void UpdateInUnitLoop(Unit unit, GameTime gameTime)
+    {
         if (unit.isPlayer || !unit.isAIControl || unit.isDead)
         {
             return;
         }
 
-        unit.SetUnitTarget(World.PlayerUnit);
-
-        if (unit.UnitTargetIsNull && !unit.IsMoving)
+        unit.UpdateVision(gameTime);
+        
+        if (unit.HasLeader)
+        {
+            UpdateMinionAI(unit, gameTime);   
+        }
+        else if (unit.UnitTargetIsNull && !unit.IsMoving)
         {
             const float roamRadius = 1280f;
             var offset = new Vector2(Utils.Random.NextSingle(-roamRadius, roamRadius),
@@ -197,6 +180,33 @@ public class Player
             );
             var target = World.Camera.Center + offset;
             unit.MoveTo(target);
+        }
+    }
+    
+    private void UpdateMinionAI(Unit unit, GameTime gameTime)
+    {
+        var leader = unit.GetLeader();
+
+        if (leader == null || leader.isDead)
+        {
+            unit.ClearLeader();
+            return;
+        }
+
+        if (!leader.UnitTargetIsNull)
+        {
+            unit.SetUnitTarget(leader.unitTarget);
+            return;
+        }
+
+        var distance = Vector2.Distance(unit.position, unit.formationPosition);
+        if (distance > 640f)
+        {
+            unit.SetUnitTarget(null);
+        }
+        else if (unit.UnitTargetIsNull && distance > 8f)
+        {
+            unit.MoveTo(unit.formationPosition);
         }
     }
 
@@ -226,7 +236,7 @@ public class Player
 
             var text = $"{(int)xp} / {(int)nextLevelXp} XP";
             var textSize = Data.Font14.MeasureString(text);
-            var textPos = new Vector2(Screen.Width / 2 - textSize.Width / 2, barPosition.Y + textSize.Height + 5);
+            var textPos = new Vector2(Screen.Width / 2 - textSize.Width / 2, barPosition.Y + textSize.Height / 2 + 10);
 
             spriteBatch.FillRectangle(totalBarRect, Color.White * 0.1f);
 
@@ -236,30 +246,38 @@ public class Player
 
             spriteBatch.DrawString(Data.Font14, text, textPos, Color.White);
 
-            DrawPlayerStats(spriteBatch, fps);
+            var restartText = "PRESS R TO RESTART";
+            var textRestartSize = Data.Font14.MeasureString(restartText);
+            var restartTextPos = new Vector2(textPos.X - textRestartSize.Width / 4, textPos.Y + textRestartSize.Height / 2 + 40);
+            spriteBatch.DrawString(Data.Font14, restartText, restartTextPos, Color.White);
+
+            DrawPlayerInfo(spriteBatch, fps);
         }
     }
     
-    private void DrawPlayerStats(SpriteBatch spriteBatch, FramesPerSecondCounter fps)
+    private void DrawPlayerInfo(SpriteBatch spriteBatch, FramesPerSecondCounter fps)
     {
         var panelPadding = 25f;
         var lineHeight = Data.Font14.LineSpacing + 12f;
         
         var statsX = 25f;
         var statsY = 35f;
+
+        var baseHealth = playerUnit.GetBaseValue(UnitValue.Health);
         
         var statLines = new List<string>
         {
-            $"FPS: {fps.FramesPerSecond}",
-            $"UnitCount: {World.UnitList.Count}",
-            $"ProjectileCount: {World.ProjectileList.Count}",
-            $"EntityCounter: {World.UnitList.Count + World.ProjectileList.Count}",
+            // $"FPS: {fps.FramesPerSecond}",
+            // $"UnitCount: {World.UnitList.Count}",
+            // $"ProjectileCount: {World.ProjectileList.Count}",
+            // $"EntityCount: {World.UnitList.Count + World.ProjectileList.Count}",
             "",
             $"Name: {playerUnit.name}",
             $"Type, Faction: {playerUnit.type}, {playerUnit.faction}",
             $"Level: {playerUnit.level}",
-            $"Health: {playerUnit.GetBaseValue(UnitValue.Health)}",
-            $"Speed Mult: {playerUnit.GetBaseValue(UnitValue.SpeedMult):F2}",
+            $"Health: {baseHealth}",
+            $"HealRate: {playerUnit.GetHealAmount(baseHealth):F2}",
+            $"Speed Mult: {playerUnit.GetBaseValue(UnitValue.MoveSpeed):F2}",
             $"Speed: {playerUnit.GetSpeedValue():F2}",
             $"Range: {playerUnit.GetBaseValue(UnitValue.Range):F2}",
             $"Magnitude: {playerUnit.GetBaseValue(UnitValue.Magnitude):F2}",
@@ -267,7 +285,7 @@ public class Player
             $"AttackSpeed: {playerUnit.GetBaseValue(UnitValue.AttackSpeed):F2}",
             $"AttackDelay: {playerUnit.GetAttackSpeed():F2}",
             $"CritChance: {playerUnit.GetBaseValue(UnitValue.CritChance):F2}",
-            $"CritRate: {playerUnit.GetBaseValue(UnitValue.CritRate):F2}",
+            $"CritRate: {playerUnit.GetBaseValue(UnitValue.CritRate):F2}"
         };
         
         var maxTextWidth = 0f;

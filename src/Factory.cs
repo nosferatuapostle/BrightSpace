@@ -13,9 +13,10 @@ public static class Factory
             UnitType.Frigate => new Frigate(faction),
             UnitType.Scout => new Scout(faction),
             UnitType.Support => new Support(faction),
-            _ => new Torpedo(faction)
+            UnitType.Torpedo => new Torpedo(faction),
+            _ => new Scout(faction)
         };
-        unit.Awake();
+        unit.PostCreate();
 
         World.AddUnit(unit);
 
@@ -27,10 +28,20 @@ public static class Factory
         Projectile projectile = type switch
         {
             WeaponType.BomberExplosion => new BomberExplosion(context),
+            WeaponType.Bolt => new Bolt(context),
+            WeaponType.Bullet => new Bullet(context),
+            WeaponType.MiniBullet => new MiniBullet(context),
+            WeaponType.FlameWave => new FlameWave(context),
+            WeaponType.Rocket => new Rocket(context),
+            WeaponType.TorpedoRocket => new TorpedoRocket(context),
+            WeaponType.Bomb => new Bomb(context),
+            WeaponType.PenetrationBullet => new PenetrationBullet(context),
+            WeaponType.AtomBomb => new AtomBomb(context),
+            WeaponType.ToxicWave => new ToxicWave(context),
             WeaponType.LightningBolt => new LightningBolt(context),
-            _ => new AnimatedProjectile(context)
+            _ => new LightningBolt(context)
         };
-        projectile.Awake();
+        projectile.PostCreate();
 
         World.AddProjectile(projectile);
 

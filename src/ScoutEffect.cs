@@ -13,7 +13,7 @@ public class ScoutEffect : UnitEffect
         target.OnDamage += DamageEvent;
     }
 
-    private void DamageEvent(Unit source, ref float damage)
+    private void DamageEvent(Unit source, Unit victim, ref float damage)
     {
         if (evadeChance.Check())
         {

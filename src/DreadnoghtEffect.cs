@@ -1,35 +1,56 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using BrightSpace;
+using System.Linq;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 using MonoGame.Extended.Timers;
+
+namespace BrightSpace;
 
 public class DreadnoughtEffect : UnitEffect
 {
+    private bool spawnerIsReady;
     private int maxCount;
     private CountdownTimer cd;
     private List<Unit> commandedUnitList;
 
+    private List<int> freeIndexList;
+
     public DreadnoughtEffect(Unit target) : base(target)
     {
+        name = "Dreadnought Commander";
+
         commandedUnitList = [];
 
+        spawnerIsReady = true;
+
         UpdateMaxCount();
+
+        freeIndexList = [];
 
         cd = new CountdownTimer(8f);
 
         target.OnLevelIncrease += LevelIncreaseEvent;
+        target.OnDeath += DeathEvent;
     }
 
     private void DeathEvent(Unit dying, Unit killer)
     {
-        dying.OnDeath -= DeathEvent;
-        commandedUnitList.Remove(dying);
-        cd.Restart();
+        OnEnd();
     }
 
-    private void LevelIncreaseEvent(Unit unit)
+    private void CommandedDeathEvent(Unit dying, Unit killer)
+    {
+        cd.Restart();
+
+        freeIndexList.Add(dying.formationIndex);
+
+        dying.OnDeath -= CommandedDeathEvent;
+
+        commandedUnitList.Remove(dying);
+    }
+
+    private void LevelIncreaseEvent()
     {
         UpdateMaxCount();
         KillAll();
@@ -38,15 +59,22 @@ public class DreadnoughtEffect : UnitEffect
 
     private void UpdateMaxCount()
     {
-        maxCount = MathHelper.Clamp(target.level / 15 + 1, 1, 7);
+        maxCount = MathHelper.Clamp(target.level / 15 + 1, 1, Unit.MaxCommandedCount);
+    }
+
+    private int ApplyFreeIndex()
+    {
+        var index = freeIndexList.FirstOrDefault();
+        freeIndexList.Remove(index);
+        return index;
     }
 
     private void KillAll()
     {
         foreach (var u in commandedUnitList)
         {
-            u.OnDeath -= DeathEvent;
-            u.Kill();
+            u.OnDeath -= CommandedDeathEvent;
+            u.Kill(u);
         }
 
         commandedUnitList.Clear();
@@ -54,49 +82,60 @@ public class DreadnoughtEffect : UnitEffect
 
     private void CommandedSpawner()
     {
+        Coroutine.Start(DelayedCommandedSpawn());
+    }
+
+    private IEnumerator DelayedCommandedSpawn()
+    {
         var missing = maxCount - commandedUnitList.Count;
-        if (missing <= 0)
+        if (missing <= 0 || !spawnerIsReady)
         {
-            return;
+            yield break;
         }
+        spawnerIsReady = false;
 
         var radius = 40f + target.radius;
         for (int i = 0; i < missing; i++)
         {
-            var index = commandedUnitList.Count;
-
-            var angle = MathHelper.TwoPi * index / maxCount;
-
-            var offset = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
-
             var unit = Factory.CreateUnit(UnitType.Scout, target.faction);
 
-            unit.position = target.position + offset;
-            unit.isPlayerTeammate = target.isPlayer;
+            unit.scale *= 0.8f;
 
-            unit.level = target.level;
-            unit.LevelUp(target.level - 1);
+            unit.position = target.position;
+
+            var index = commandedUnitList.Count;
+            if (freeIndexList.Count > 0)
+            {
+                index = ApplyFreeIndex();
+            }
+            unit.SetLeader(target, index);
+
+            unit.isPlayerTeammate = target.isPlayer;
+            unit.isAIControl = true;
+
+            var unitLevel = MathHelper.Max(1, target.level / 2);
+
+            unit.level = unitLevel;
+            unit.LevelUp(unitLevel - 1);
 
             unit.RestoreFullHealth();
 
-            unit.OnDeath += DeathEvent;
+            unit.AddValueModifier(UnitValue.Magnitude, ModifierData.COMMANDED_DEBUFF, new ValueModifier(-0.8f, ModifierType.PercentMult));
+
+            unit.OnDeath += CommandedDeathEvent;
 
             commandedUnitList.Add(unit);
+
+            yield return Coroutine.WaitForSeconds(0.2f);
         }
+
+        spawnerIsReady = true;
     }
 
     protected override void OnTick(GameTime gameTime)
     {
-        if (Input.Keyboard.WasKeyReleased(Keys.B))
-        {
-            if (commandedUnitList.Count > 0)
-            {
-                commandedUnitList[Utils.Random.Next(0, commandedUnitList.Count)].Kill();                
-            }
-        }
-
         cd.Update(gameTime);
-        if (cd.State == TimerState.Completed)
+        if (!target.isDead && cd.State == TimerState.Completed)
         {
             CommandedSpawner();
         }

@@ -19,6 +19,8 @@ public class UnitSelectState
         desktop = new Desktop();
         timer = new CountdownTimer(5f);
         Build();
+
+        World.Camera.LookAt(Player.SpawnPosition);
     }
 
     private void Reset()
@@ -95,9 +97,14 @@ public class UnitSelectState
                     button.Click += (s, a) =>
                     {
                         Reset();
+                        World.UnitList.ForEach(u => u.Kill(u));
+
                         Main.GameState = GameState.GamePlayState;
-                        unitType = type;
-                        World.SetPlayerUnit(Factory.CreateUnit(unitType, faction));
+                        
+                        unitType = type;                        
+                        var unit = Factory.CreateUnit(unitType, faction);
+
+                        World.SetPlayerUnit(unit);
 
                         foreach (var b in buttonList)
                         {

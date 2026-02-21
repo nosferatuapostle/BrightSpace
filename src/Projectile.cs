@@ -13,8 +13,8 @@ public abstract class Projectile : BasicObject
 
     public ProjectileContext context;
 
-    public Vector2 direction;
-    public CountdownTimer lifeTime;
+    protected Vector2 direction;
+    protected CountdownTimer lifeTime;
 
     public Projectile(ProjectileContext context, float lifeTimeDuration)
     {
@@ -51,7 +51,7 @@ public abstract class Projectile : BasicObject
             isDone = true;
         }
 
-        if (WasCollision())
+        if (OnCollision())
         {
             isDone = true;
         }
@@ -67,26 +67,23 @@ public abstract class Projectile : BasicObject
         }
     }
 
-    public virtual bool WasCollision()
+    public virtual bool OnCollision()
     {
+        var owner = context.owner;
+
         for (int i = 0; i < World.UnitList.Count; i++)
         {
             var u = World.UnitList[i];
 
-            if (u.isDead)
+            if (u == owner || u.isDead || !owner.HostileTo(u))
             {
                 continue;
             }
 
-            var owner = context.owner;
-
             if ((u.position - position).Length() < u.radius + radius && u != owner)
             {
-                if (owner.isPlayer || u.HostileTo(owner))
-                {
-                    HitAction(u);
-                    return true;
-                }
+                HitAction(u);
+                return true;
             }
         }
         return false;

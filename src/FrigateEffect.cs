@@ -15,7 +15,7 @@ public class FrigateEffect : UnitEffect
         cd = new CountdownTimer(0.1f);
     }
 
-    private void DamageEvent(Unit source, ref float damage)
+    private void DamageEvent(Unit source, Unit victim, ref float damage)
     {
         if (cd.State == TimerState.Completed)
         {
@@ -28,7 +28,7 @@ public class FrigateEffect : UnitEffect
             }
 
             target.AddTag(Tag.ReflectionBlock);
-            source.TakeDamage(target, target.Magnitude(damage * 0.5f));
+            source.TakeDamage(target, target.Magnitude(damage * 0.08f));
         }
     }
 

@@ -25,9 +25,9 @@ public class Main : Core
 
         GameState = GameState.SelectState;
 
-        unitSelectState = new UnitSelectState();
-
         world = new World();
+
+        unitSelectState = new UnitSelectState();
     }
 
     protected override void Update(GameTime gameTime)
@@ -49,7 +49,7 @@ public class Main : Core
         {
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
             unitSelectState.Draw(spriteBatch);
-            spriteBatch.End();            
+            spriteBatch.End();
         }
         
     }

@@ -14,7 +14,7 @@ public class SpaceShip : Unit
 
     private CountdownTimer engineTimer;
 
-    public SpaceShip(Faction faction)
+    public SpaceShip(Faction faction, float health) : base(health)
     {
         sprite = animatedSprite;
         this.faction = faction;
@@ -22,15 +22,18 @@ public class SpaceShip : Unit
         engineTimer = new CountdownTimer(1.2f);
 
         AddValueModifier(UnitValue.Health, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
-        AddValueModifier(UnitValue.Magnitude, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
-        AddValueModifier(UnitValue.SpeedMult, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
+        AddValueModifier(UnitValue.HealRate, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
+        AddValueModifier(UnitValue.MoveSpeed, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
         AddValueModifier(UnitValue.Range, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
+        AddValueModifier(UnitValue.Magnitude, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
         AddValueModifier(UnitValue.AttackSpeed, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
+        AddValueModifier(UnitValue.CritChance, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
+        AddValueModifier(UnitValue.CritRate, ModifierData.PER_LEVEL, new ValueModifier(0f, ModifierType.Flat));
     }
 
-    public override void Awake()
+    public override void PostCreate()
     {
-        base.Awake();
+        base.PostCreate();
         engineSprite.IsVisible = false;
         deathSprite.IsVisible = false;
         deathSprite.Controller.Pause();
@@ -74,6 +77,7 @@ public class SpaceShip : Unit
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
+        
         animatedSprite.Update(gameTime);
         engineSprite.Update(gameTime);
         deathSprite.Update(gameTime);

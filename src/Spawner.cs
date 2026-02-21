@@ -26,7 +26,7 @@ public class Spawner
     {
         while (true)
         {
-            yield return Coroutine.WaitForSeconds(1); //Utils.Random.Next(2, 8)
+            yield return Coroutine.WaitForSeconds(Utils.Random.Next(2, 8)); 
 
             var player = World.PlayerUnit;
 
@@ -74,9 +74,9 @@ public class Spawner
             int minLevel = MathHelper.Max(1, playerLevel - 12);
             int maxLevel = playerLevel + 24;
 
-            int unitLevel = Utils.Random.Next(minLevel, maxLevel + 1);
-            // var stdDev = 2f + (playerLevel / 10f);
-            // int unitLevel = GenerateUnitLevel(playerLevel, minLevel, maxLevel, stdDev);
+            // int unitLevel = Utils.Random.Next(minLevel, maxLevel + 1);
+            var stdDev = 2f + (playerLevel / 10f);
+            int unitLevel = GenerateUnitLevel(playerLevel, minLevel, maxLevel, stdDev);
 
             var unit = Factory.CreateUnit(type, faction);
 
@@ -88,19 +88,22 @@ public class Spawner
             unit.RestoreFullHealth();
 
             unit.isAIControl = true;
-            unit.SetWeapon(new WeaponData()
-            {
-                name = "Test",
-                type = WeaponType.None,
-                damage = 1f,
-                attackSpeed = 1f
-            });
 
-            unit.OnDeath += (_, _) =>
-            {
-                counter--;
-            };
+            unit.OnDamage += DamageEvent;
+            unit.OnDeath += DeathEvent;
         }
+    }
+
+    private void DamageEvent(Unit source, Unit victim, ref float damage)
+    {
+        victim.SetUnitTarget(source, damage);
+    }
+
+    private void DeathEvent(Unit dying, Unit killer)
+    {
+        counter--;
+        dying.OnDamage -= DamageEvent;
+        dying.OnDeath -= DeathEvent;
     }
     
     private int GenerateUnitLevel(int mean, int min, int max, float stdDev)

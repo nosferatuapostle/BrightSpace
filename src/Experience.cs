@@ -32,12 +32,12 @@ public class Experience
 
     public void AddExp(float amount)
     {
-        var bonusExp = xpToNextLevel * 0.01f;
+        var bonusExp = xpToNextLevel * 0.05f;
         xp += amount + bonusExp;
         while (xp >= xpToNextLevel)
         {
             xp -= xpToNextLevel;
-            xpToNextLevel = (int)(xpToNextLevel * 1.2f) + 2;
+            xpToNextLevel = (int)(xpToNextLevel * 1.1f) + 2;
             OnLevelUp?.Invoke();
         }
     }

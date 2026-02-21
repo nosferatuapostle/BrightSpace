@@ -9,17 +9,19 @@ public delegate void OnKillEvent(Unit dying);
 public delegate void OnDeathEvent(Unit dying, Unit killer);
 public delegate void OnAttackEvent(Unit target);
 public delegate void OnHitEvent(Unit victim, ref float damage);
-public delegate void OnDamagedEvent(Unit source, ref float damage);
+public delegate void OnDamageEvent(Unit source, Unit victim, ref float damage);
 public delegate void OnValueChangedEvent(UnitValue unitValue);
-public delegate void OnLevelIncreaseEvent(Unit unit);
+public delegate void OnLevelIncreaseEvent();
 
 public abstract class Unit : BasicObject
 {
+    public const int MaxCommandedCount = 8;
+
     public OnKillEvent OnKill;
     public OnDeathEvent OnDeath;
     public OnAttackEvent OnAttack;
     public OnHitEvent OnHit;
-    public OnDamagedEvent OnDamage;
+    public OnDamageEvent OnDamage;
     public OnValueChangedEvent OnValueChanged;
     public OnLevelIncreaseEvent OnLevelIncrease;
 
@@ -39,6 +41,7 @@ public abstract class Unit : BasicObject
     public int level;
 
     protected float baseSpeed;
+    protected float baseHealRate;
 
     public float radius;
     public float extraHeight;
@@ -48,7 +51,11 @@ public abstract class Unit : BasicObject
     public UnitType type;
 
     private Vector2 moveTarget;
-    protected Unit unitTarget;
+
+    private Unit leader;
+    public int formationIndex;
+
+    private Dictionary<Unit, float> unitTargetList;
 
     private PseudoRandom critChance;
 
@@ -58,7 +65,9 @@ public abstract class Unit : BasicObject
     protected float baseAttackSpeed;
     private CountdownTimer attackDelay;
 
-    public Unit()
+    private CountdownTimer visionDelay;
+
+    public Unit(float health)
     {
         radius = 16f;
         extraHeight = 0f;
@@ -73,30 +82,37 @@ public abstract class Unit : BasicObject
         level = 1;
 
         baseSpeed = 100f;
+        baseHealRate = 0.01f;
 
         tagList = [];
 
         values = [];
         resources = [];
 
-        var unitValue = UnitValue.Health;
-        var healthValue = AddValue(unitValue, 10f, 0f);
 
-        AddValue(UnitValue.SpeedMult, 1f, 0f);
+        var unitValue = UnitValue.Health;
+        var healthValue = AddValue(unitValue, health, 0f);
+
+        AddValue(UnitValue.HealRate, 1f, 0f);
+        AddValue(UnitValue.DamageResist, 0f, 0f);
+        AddValue(UnitValue.MoveSpeed, 1f, 0f);
+        AddValue(UnitValue.Range, 0f, 0f);
         AddValue(UnitValue.Magnitude, 1f, 0f);
-        AddValue(UnitValue.Range, 200f, 0f);
-        AddValue(UnitValue.AttackSpeed, 5f, 0.1f, 10f);
+        AddValue(UnitValue.AttackSpeed, 1f, 0.1f, 10f);
         AddValue(UnitValue.CritChance, 0.01f, 0.01f, 1f);
         AddValue(UnitValue.CritRate, 1.2f, 0.1f);
 
         AddResource(unitValue, healthValue);
 
-        canAttack = false;
+        unitTargetList = [];
+
+        canAttack = true;
         critChance = new PseudoRandom(GetBaseValue(UnitValue.CritChance), 0.5f);
         attackDelay = new CountdownTimer(0f);
-        SetWeapon(Data.LightningBolt());
 
         effectTarget = new EffectTarget();
+
+        visionDelay = new CountdownTimer(0.25f);
     }
 
     public bool IsHovered
@@ -119,16 +135,38 @@ public abstract class Unit : BasicObject
         get { return unitTarget == null; }
     }
 
-    public override void Awake()
+    public bool HasLeader
     {
-        base.Awake();
+        get { return leader != null; }
+    }
+
+    public Vector2 formationPosition
+    {
+        get
+        {
+            var radius = leader.radius + 64f;
+
+            var angleStep = MathHelper.TwoPi / MaxCommandedCount;
+            var angle = formationIndex * angleStep;
+
+            var offset = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+            return leader.position + offset;
+        }
+    }
+
+    public override void PostCreate()
+    {
+        base.PostCreate();
+
+        SetWeapon(Data.LightningBolt());
+
         OnValueChanged += UpdateValueEvent;
         OnDeath += DeathEvent;
     }
 
-    public override void Destroy()
+    public override void PostDeath()
     {
-        base.Destroy();
+        base.PostDeath();
         OnValueChanged -= UpdateValueEvent;
         OnDeath -= DeathEvent;
     }
@@ -161,9 +199,99 @@ public abstract class Unit : BasicObject
         moveTarget = Vector2.Zero;
     }
 
-    public virtual void SetUnitTarget(Unit target)
+    public virtual void SetUnitTarget(Unit target, float agressionLevel = 1f)
     {
-        unitTarget = target;
+        if (target == null)
+        {
+            unitTargetList.Clear();
+            return;
+        }
+        else if (target.isDead || target == this || target == leader)
+        {
+            return;
+        }
+
+        if (!unitTargetList.ContainsKey(target))
+        {
+            unitTargetList[target] = agressionLevel;
+        }
+
+        unitTargetList[target] += agressionLevel;
+    }
+
+    public virtual Unit unitTarget
+    {
+        get
+        {
+            Unit best = null;
+            var maxThreat = 0f;
+            foreach (var kvp in unitTargetList)
+            {
+                if (kvp.Key.isDead)
+                {
+                    unitTargetList.Remove(kvp.Key);
+                    continue;
+                }
+
+                if (kvp.Value > maxThreat)
+                {
+                    maxThreat = kvp.Value;
+                    best = kvp.Key;
+                }
+            }
+
+            return best;
+        }
+    }
+    
+    public void UpdateVision(GameTime gameTime)
+    {
+        visionDelay.Update(gameTime);
+        if (visionDelay.State == TimerState.Completed)
+        {
+            visionDelay.Restart();
+            foreach (var u in World.UnitList)
+            {
+                if (u.isDead || !u.HostileTo(this))
+                {
+                    continue;
+                }
+
+                const float maxDist = 540f;
+                var distance = (u.position - position).Length();
+                if (distance > maxDist)
+                {
+                    continue;
+                }
+
+                var bonus = (maxDist - distance) * 0.01f;
+                SetUnitTarget(u, 1f + bonus);
+                break;
+            }
+        }
+    }
+
+    public virtual Unit GetLeader()
+    {
+        return leader;
+    }
+
+    public virtual void SetLeader(Unit unit, int index)
+    {
+        leader = unit;
+        formationIndex = index;
+
+        leader.OnDamage += LeaderHitEvent;
+    }
+
+    private void LeaderHitEvent(Unit source, Unit victim, ref float damage)
+    {
+        SetUnitTarget(source, damage);
+    }
+
+    public virtual void ClearLeader()
+    {
+        leader = null;
     }
 
     public bool HasTag(Tag tag)
@@ -181,10 +309,20 @@ public abstract class Unit : BasicObject
         tagList.Remove(tag);
     }
 
+    public virtual float GetHealRate()
+    {
+        return baseHealRate * GetBaseValue(UnitValue.HealRate);
+    }
+
+    public virtual float GetHealAmount(float baseHealth)
+    {
+        return baseHealth * GetHealRate();
+    }
+
     public virtual float GetSpeedValue()
     {
-        var speed = baseSpeed * GetBaseValue(UnitValue.SpeedMult);
-        return MathHelper.Clamp(speed, 0f, 444f);
+        var speed = baseSpeed * GetBaseValue(UnitValue.MoveSpeed);
+        return MathHelper.Clamp(speed, 0f, 222f);
     }
 
     public virtual float GetAttackSpeed()
@@ -310,10 +448,17 @@ public abstract class Unit : BasicObject
 
     public override void Update(GameTime gameTime)
     {
+        var baseHealth = GetBaseValue(UnitValue.Health);
+        if (GetValue(UnitValue.Health) < baseHealth)
+        {
+            var heal = GetHealAmount(baseHealth) * Time.Delta;
+            RestoreValue(UnitValue.Health, heal);
+        }
+
         if (IsMoving)
         {
             var dir = moveTarget - position;
-            if (dir.Length() > 4f)
+            if (dir.Length() > 8f)
             {
                 dir.Normalize();
                 position += dir * GetSpeedValue() * Time.Delta;
@@ -336,13 +481,16 @@ public abstract class Unit : BasicObject
         if (!UnitTargetIsNull && !unitTarget.isDead)
         {
             var len = (position - unitTarget.position).Length();
-            if (len > GetBaseValue(UnitValue.Range))
+            if (len > GetBaseValue(UnitValue.Range) + radius)
             {
                 MoveTo(unitTarget.position);
             }
             else
             {
-                MoveStop();
+                if (IsMoving)
+                {
+                    MoveStop();
+                }
                 float angle = MathF.Abs(MathHelper.WrapAngle(rotation - position.ToAngle(unitTarget.position)));
                 if (angle < 0.1f)
                 {
@@ -378,7 +526,7 @@ public abstract class Unit : BasicObject
         System.Diagnostics.Debug.WriteLine($"level: {level}");
         System.Diagnostics.Debug.WriteLine($"health: {GetBaseValue(UnitValue.Health)}");
         System.Diagnostics.Debug.WriteLine($"magnitude: {GetBaseValue(UnitValue.Magnitude)}");
-        System.Diagnostics.Debug.WriteLine($"speed mult: {GetBaseValue(UnitValue.SpeedMult)}");
+        System.Diagnostics.Debug.WriteLine($"speed mult: {GetBaseValue(UnitValue.MoveSpeed)}");
         System.Diagnostics.Debug.WriteLine($"damage: {GetBaseDamageValue()}");
         System.Diagnostics.Debug.WriteLine($"speed: {GetSpeedValue()}");
         System.Diagnostics.Debug.WriteLine($"range: {GetBaseValue(UnitValue.Range)}");
@@ -391,12 +539,17 @@ public abstract class Unit : BasicObject
         // DebugLog();
         UpdateAttackDelay();
         UpdateCritChance();
-        OnLevelIncrease?.Invoke(this);
+        OnLevelIncrease?.Invoke();
     }
 
-    public bool HostileTo(Unit unit)
+    public virtual bool HostileTo(Unit unit)
     {
-        return unit.faction != faction;
+        if (unitTargetList.ContainsKey(unit) || unit.faction != faction)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     public float CalculateDamage(float damage, bool isPure = false)
@@ -427,18 +580,18 @@ public abstract class Unit : BasicObject
         if (!isDead)
         {
             source.OnHit?.Invoke(this, ref damage);
-            OnDamage?.Invoke(source, ref damage);
+            OnDamage?.Invoke(source, this, ref damage);
             RestoreValue(UnitValue.Health, -CalculateDamage(damage));
             if (GetValue(UnitValue.Health) <= 0 && !isCannotDie)
             {
-                OnDeath?.Invoke(this, source);
+                Kill(source);
             }
         }
     }
 
-    public virtual void Kill()
+    public virtual void Kill(Unit source)
     {
-        OnDeath?.Invoke(this, this);
+        OnDeath?.Invoke(this, source);
     }
 
     public void SetWeapon(WeaponData weapon)
@@ -447,6 +600,7 @@ public abstract class Unit : BasicObject
         baseDamage = weapon.damage;
         baseAttackSpeed = weapon.attackSpeed;
         UpdateAttackDelay();
+        SetBaseValue(UnitValue.Range, weapon.range);
     }
 
     public void UpdateAttackDelay()

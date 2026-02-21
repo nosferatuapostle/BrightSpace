@@ -12,6 +12,8 @@ public class TorpedoEffect : UnitEffect
 
     public TorpedoEffect(Unit target) : base(target)
     {
+        name = "Torpedo Double Attack";
+
         isReady = false;
         cd = new CountdownTimer(0f);
 

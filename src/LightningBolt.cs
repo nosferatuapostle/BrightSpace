@@ -14,18 +14,21 @@ public class LightningBolt : Projectile
         World.CreateLightning(2f, context.owner.position, position);
     }
 
-    public override bool WasCollision()
+    public override bool OnCollision()
     {
         for (int i = 0; i < World.UnitList.Count; i++)
         {
             var u = World.UnitList[i];
             var owner = context.owner;
-            if ((u.position - position).Length() < u.radius + radius && u != owner)
+
+            if (u == owner || u.isDead || !owner.HostileTo(u))
             {
-                if (owner.isPlayer || u.HostileTo(owner))
-                {
-                    HitAction(u);
-                }
+                continue;
+            }
+
+            if ((u.position - position).Length() < u.radius + radius)
+            {
+                HitAction(u);
             }
         }
         return true;

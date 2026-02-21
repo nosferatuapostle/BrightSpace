@@ -4,27 +4,18 @@ using MonoGame.Extended.Graphics;
 
 namespace BrightSpace;
 
-public class AnimatedProjectile : Projectile
+public abstract class AnimatedProjectile : Projectile
 {
     private AnimatedSprite animatedSprite;
 
-    public AnimatedProjectile(ProjectileContext context) : base(context, 20f)
+    public AnimatedProjectile(ProjectileContext context, float lifeTimeDuration, string texturePath, int width, int height, int frames) : base(context, lifeTimeDuration)
     {
-        speed = 200f;
-        radius = 2f;
-
-        animatedSprite = Utils.CreateAnimatedSprite("projectile", 9, 9, 5);
+        animatedSprite = Utils.CreateAnimatedSprite(texturePath, width, height, frames);
         sprite = animatedSprite;
     }
 
     public override void Update(GameTime gameTime)
-    {
-        var targetUnit = context.targetUnit;
-        if (targetUnit != null && !targetUnit.isDead && context.owner.HostileTo(targetUnit))
-        {
-            UpdateDirection(targetUnit.position);
-        }
-        
+    {        
         base.Update(gameTime);
         animatedSprite.Update(gameTime);
     }

@@ -6,7 +6,7 @@ namespace BrightSpace;
 
 public class Asteroid : Unit
 {
-    public Asteroid()
+    public Asteroid() : base(10f)
     {
         faction = Faction.None;
         type = UnitType.Asteroid;

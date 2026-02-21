@@ -32,8 +32,11 @@ public enum UnitValue
 {
     None,
     Health,
+    HealRate,
+    HealthRegen,
+    DamageResist,
     Magnitude,
-    SpeedMult,
+    MoveSpeed,
     Range,
     CritChance,
     CritRate,
@@ -57,17 +60,26 @@ public enum ModifierType
 
 public enum ModifierData
 {
-    PLAYER_HEALTH,
-    PLAYER_DAMAGE,
-    PLAYER_SPEED,
+    PLAYER_BUFF,
     PER_LEVEL,
     SCOUT_EFFECT,
-    SUPPORT_EFFECT
+    SUPPORT_EFFECT,
+    COMMANDED_DEBUFF
 }
 
 public enum WeaponType
 {
     None,
     BomberExplosion,
+    Bolt,
+    Bullet,
+    MiniBullet,
+    FlameWave,
+    Rocket,
+    TorpedoRocket,
+    Bomb,
+    PenetrationBullet,
+    AtomBomb,
+    ToxicWave,
     LightningBolt
 }

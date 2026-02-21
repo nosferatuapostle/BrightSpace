@@ -12,8 +12,8 @@ public class BattlecruiserEffect : UnitEffect
     {
         name = "Battlecruiser Aura";
 
-        auraDamage = 0.1f;
-        cd = new CountdownTimer(0.2f);
+        auraDamage = 3f;
+        cd = new CountdownTimer(1.2f);
 
         target.OnDeath += DeathEvent;
     }
@@ -45,7 +45,7 @@ public class BattlecruiserEffect : UnitEffect
             }
 
             var distance = (u.position - target.position).Length();
-            if (distance < 360f)
+            if (distance < 480f)
             {
                 cd.Restart();
                 u.TakeDamage(target, target.Magnitude(auraDamage));

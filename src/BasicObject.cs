@@ -55,11 +55,12 @@ public abstract class BasicObject
         set { transform.Scale = value; }
     }
 
-    public virtual void Awake()
+    public virtual void PostCreate()
     {
         OnAdded?.Invoke();
     }
-    public virtual void Destroy()
+    
+    public virtual void PostDeath()
     {
         OnRemoved?.Invoke();
     }
